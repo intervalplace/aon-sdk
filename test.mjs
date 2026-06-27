@@ -30,7 +30,7 @@ import {
   canonicalReceiptByReserve,
   listNamespaces,
   AonNodeClient,
-} from "./src/index.js";
+} from "./src/index.ts";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
