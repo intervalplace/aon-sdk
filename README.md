@@ -2,7 +2,7 @@
 
 The executor and namespace layer for the Authorization Object Network.
 
-The SDK contains everything that runs *on top of* AON nodes — namespace adapters, graph evaluation, object construction, execution logic, and query helpers. It has no p2p logic, no storage, and no server. It communicates with the network exclusively through the node HTTP API.
+The SDK contains everything that runs *on top of* AON nodes: namespace adapters, graph evaluation, object construction, execution logic, and query helpers. It has no p2p logic, no storage, and no server. It communicates with the network exclusively through the node HTTP API.
 
 ## Architecture
 
@@ -39,9 +39,9 @@ scripts/                     — Example executor scripts
 
 ## Concepts
 
-**Executors** are permissionless participants that discover executable authorization graphs on the network and consume them. Anyone can run an executor against any AON node. No registration, no node operator permission, no prior coordination required.
+**Executors** are permissionless participants that discover executable authorization graphs on the network and consume them. Anyone can run an executor against any AON node. No registration, no node operator permission, and no prior coordination required.
 
-**Namespace adapters** define how a specific namespace interprets objects — what valid authorization looks like, how to verify proofs, how to execute, and what the executor reward is. The SDK ships with two adapters: `aon:csd-usdc` and `aon:evm-spot`.
+**Namespace adapters** define how a specific namespace interprets objects: what valid authorization looks like, how to verify proofs, how to execute, and what the executor reward is. The SDK ships with two adapters: `aon:csd-usdc` and `aon:evm-spot`.
 
 **Helpers** are pure functions over `AonObject[]` arrays. They cover every query and construction operation that executors need — filtering, enrichment, object building, signature verification.
 
@@ -87,7 +87,7 @@ const graph = await client.getGraph("0xabc...");
 
 ## Query helpers
 
-All helpers take an `AonObject[]` array fetched from a node. They are pure functions — no network calls, no storage.
+All helpers take an `AonObject[]` array fetched from a node. They are pure functions. No network calls, no storage.
 
 ```ts
 import {
@@ -257,4 +257,4 @@ const myAdapter: NamespaceAdapter = {
 
 ## Node
 
-The AON node that the SDK connects to lives in [aon](https://github.com/intervalplace/aon). The node is transport-agnostic infrastructure — it propagates objects without understanding their contents. The SDK is the layer that gives those objects meaning.
+The AON node that the SDK connects to lives in [aon](https://github.com/intervalplace/aon). The node is transport-agnostic infrastructure that propagates objects without understanding their contents. The SDK is the layer that gives those objects meaning.
