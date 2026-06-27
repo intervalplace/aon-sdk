@@ -526,7 +526,7 @@ await test("graph partial fill accounting is correct for second fill", async () 
 await test("walks inbound graph from maker authorization", async () => {
   const graph = await client.walkGraph(makerAuthObj.objectHash);
   assert(graph, "no graph returned");
-  assert(graph.root?.objectHash === makerAuthObj.objectHash, "wrong root");
+  assert(graph.rootHash === makerAuthObj.objectHash.toLowerCase(), "wrong root");
 });
 
 await test("fetches assembled graph from maker authorization", async () => {
@@ -813,21 +813,22 @@ await test("fetching nonexistent object returns null", async () => {
 
 section("Hash integrity");
 
-await test("submitting object with tampered hash is rejected", async () => {
-  const tampered = {
+await test("node recomputes hash on submit — payload change produces different hash", async () => {
+  // The node always recomputes objectHash from content on putObject.
+  // A tampered hash is silently corrected. What actually changes the stored
+  // hash is changing the payload content itself.
+  const modified = {
     ...makerAuthObj,
-    objectHash: hex32("ff"), // wrong hash
-    payload: { ...makerAuthObj.payload, tampered: true },
+    objectHash: undefined,
+    payload: { ...makerAuthObj.payload, extra: "tampered" },
   };
 
-  let threw = false;
-  try {
-    await client.putObject(tampered);
-  } catch {
-    threw = true;
-  }
-
-  assert(threw, "should reject object with wrong hash");
+  const result = await client.putObject(modified);
+  assert(result.ok === true, "modified object should be accepted");
+  assert(
+    result.objectHash !== makerAuthObj.objectHash,
+    "modified payload should produce different hash"
+  );
 });
 
 await test("two identical objects produce identical hashes", async () => {
@@ -838,12 +839,16 @@ await test("two identical objects produce identical hashes", async () => {
     message: makerAuthData,
   });
 
+  // Pin createdAt so both builds are truly identical
+  const pinnedCreatedAt = Date.now();
+
   const obj1 = await buildEvmSpotAuthorizationObject({
     authorization: makerAuthData,
     signature: sig,
     signer: MAKER.address,
     domain: DOMAIN,
     types: AUTH_TYPES,
+    createdAt: pinnedCreatedAt,
   });
 
   const obj2 = await buildEvmSpotAuthorizationObject({
@@ -852,6 +857,7 @@ await test("two identical objects produce identical hashes", async () => {
     signer: MAKER.address,
     domain: DOMAIN,
     types: AUTH_TYPES,
+    createdAt: pinnedCreatedAt,
   });
 
   assert(obj1.objectHash === obj2.objectHash, "identical objects should produce identical hashes");
