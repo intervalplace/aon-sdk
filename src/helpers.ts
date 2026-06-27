@@ -9,6 +9,7 @@
 
 import { getAddress, verifyTypedData, type Hex } from "viem";
 import type { AonObject } from "./object.js";
+import { finalizeObject } from "./object.js";
 import { getNamespaceAdapter, listNamespaceAdapters } from "./namespaces/index.js";
 import { findExecutableGraphs } from "./executable.js";
 import { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
@@ -311,7 +312,7 @@ export async function buildCsdUsdcAuthorizationObject(body: {
     throw new Error("AUTHORIZATION_EXPIRED");
   }
 
-  return {
+  return finalizeObject({
     objectType: "authorization",
     schemaVersion: "1",
     namespace: body.namespace ?? "aon:csd-usdc",
@@ -332,7 +333,7 @@ export async function buildCsdUsdcAuthorizationObject(body: {
         signature: body.signature,
       },
     },
-  } as any;
+  } as any);
 }
 
 export async function buildEvmSpotAuthorizationObject(body: {
@@ -365,7 +366,7 @@ export async function buildEvmSpotAuthorizationObject(body: {
     code: "BAD_AUTHORIZATION_SIGNATURE",
   });
 
-  return {
+  return finalizeObject({
     objectType: "authorization",
     schemaVersion: "1",
     namespace: body.namespace ?? "aon:evm-spot",
@@ -386,7 +387,7 @@ export async function buildEvmSpotAuthorizationObject(body: {
         signature: body.signature,
       },
     },
-  } as any;
+  } as any);
 }
 
 export async function buildEvmSpotOrderObject(
@@ -451,7 +452,7 @@ export async function buildEvmSpotOrderObject(
     code: "BAD_ORDER_SIGNATURE",
   });
 
-  return {
+  return finalizeObject({
     objectType: "order",
     schemaVersion: "1",
     namespace: "aon:evm-spot",
@@ -472,7 +473,7 @@ export async function buildEvmSpotOrderObject(
         signature: body.signature,
       },
     },
-  } as any;
+  } as any);
 }
 
 export function buildEvmSpotFillObject(body: {
@@ -503,7 +504,7 @@ export function buildEvmSpotFillObject(body: {
     settlementContract: body.fill.settlementContract,
   };
 
-  return {
+  return finalizeObject({
     objectType: "fill",
     schemaVersion: "1",
     namespace: "aon:evm-spot",
@@ -515,7 +516,7 @@ export function buildEvmSpotFillObject(body: {
       fill,
       summary: body.summary ?? null,
     },
-  };
+  });
 }
 
 export async function buildRevocationObject(
@@ -560,7 +561,7 @@ export async function buildRevocationObject(
     code: "BAD_REVOCATION_SIGNATURE",
   });
 
-  return {
+  return finalizeObject({
     objectType: "revocation",
     schemaVersion: "1",
     namespace: target.namespace,
@@ -583,7 +584,7 @@ export async function buildRevocationObject(
         signature: body.signature.signature,
       },
     },
-  } as any;
+  } as any);
 }
 
 // ── Receipt construction ──────────────────────────────────────────────────────
@@ -611,7 +612,7 @@ export function buildReceiptObject(graph: any, action: any, opts?: {
     graph.fill?.objectHash,
   ].filter(Boolean) as string[];
 
-  return {
+  return finalizeObject({
     objectType: "receipt",
     schemaVersion: "1",
     namespace,
@@ -629,5 +630,5 @@ export function buildReceiptObject(graph: any, action: any, opts?: {
         executed: action.executed,
       },
     },
-  };
+  });
 }
