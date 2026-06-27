@@ -1,21 +1,16 @@
-// index.ts
-//
-// Public surface of the AON SDK.
-//
-// Executors import from here. Nothing else needs to be imported directly
-// unless you're building something that requires lower-level access.
+// index.ts — public surface of the AON SDK
 
-// Node client — how executors talk to nodes
+// Node client
 export { AonNodeClient } from "./client.js";
 
 // Core object type
 export type { AonObject } from "./object.js";
 
-// Graph evaluation — find executable authorization relationships
+// Graph evaluation
 export { findExecutableGraphs } from "./executable.js";
 export { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
 
-// Namespace adapters — how each namespace interprets objects
+// Namespace adapters
 export {
   getNamespaceAdapter,
   listNamespaceAdapters,
@@ -24,6 +19,63 @@ export {
 } from "./namespaces/index.js";
 export type { NamespaceAdapter } from "./namespaces/index.js";
 
-// Executor loop — run a permissionless executor against a node
+// Executor loop
 export { runExecutor } from "./executor.js";
 export type { ExecutorConfig } from "./executor.js";
+
+// Query and construction helpers
+export {
+  // Utilities
+  refsLower,
+  requireHex,
+  nowMs,
+
+  // Time and revocation
+  isAuthorizationTimeActive,
+  isAuthorizationActive,
+  isRevoked,
+  revocationsForTarget,
+
+  // Receipt / reserve checks
+  hasReceiptReferencing,
+  hasReserveForAuthorization,
+
+  // Graph helpers
+  graphNamespace,
+  graphPrimaryAuthorization,
+  enrichGraph,
+
+  // Executable queries
+  findExecutable,
+  findNextExecutable,
+
+  // Open object queries
+  openAuthorizations,
+  openReserves,
+  expiredReserves,
+
+  // Receipt queries
+  receipts,
+  receiptsByReserve,
+  receiptsByProof,
+  receiptsByTxid,
+  canonicalReceiptByReserve,
+  canonicalReceiptByTxid,
+
+  // Namespace listing
+  listNamespaces,
+
+  // EIP-712 verification
+  requireValidTypedSignature,
+
+  // Object construction
+  buildCsdUsdcAuthorizationObject,
+  buildEvmSpotAuthorizationObject,
+  buildEvmSpotOrderObject,
+  buildEvmSpotFillObject,
+  buildRevocationObject,
+  buildReceiptObject,
+} from "./helpers.js";
+
+// Proof construction
+export { makeCsdPaymentProofObject } from "./proofs/csdFromTxid.js";
