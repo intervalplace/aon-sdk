@@ -1,5 +1,5 @@
 import type { AonObject } from "../object.js";
-import { getObject } from "../store.js";
+
 
 export function requireObject(
     hash: string,
