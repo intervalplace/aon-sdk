@@ -1,4 +1,4 @@
-import { putObject } from "../store.js";
+
 
 export async function fetchCsdProofByTxid(txid: string) {
   const base = process.env.CSD_RPC_URL ?? "http://127.0.0.1:8887";
