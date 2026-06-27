@@ -7,7 +7,7 @@ export type AonObject = {
   createdAt: number;
   creator?: string;
   references: string[];
-  payload?: any;
+  payload?: Record<string, unknown>;
   objectHash?: string;
   signature?: any;
 };
