@@ -4,14 +4,133 @@ The executor and namespace layer for the Authorization Object Network.
 
 The SDK contains everything that runs *on top of* AON nodes: namespace adapters, graph evaluation, object construction, execution logic, and query helpers. It has no p2p logic, no storage, and no server. It communicates with the network exclusively through the node HTTP API.
 
+## Quickstart
+
+**Requirements:** Node.js 20+, a running AON node
+
+```bash
+git clone https://github.com/intervalplace/aon-sdk.git
+cd aon-sdk
+npm install
+```
+
+**Connect to a node and list objects:**
+
+```ts
+import { AonNodeClient } from "./src/index.ts";
+
+const client = new AonNodeClient("http://localhost:8787");
+const objects = await client.listObjects({ namespace: "aon:evm-spot" });
+console.log(objects);
+```
+
+**Run a permissionless executor:**
+
+```ts
+import { runExecutor } from "./src/index.ts";
+
+await runExecutor({
+  nodeUrl: "http://localhost:8787",
+  namespace: "aon:evm-spot",
+  mode: "simulate",        // use "contract" for real execution
+  pollIntervalMs: 5000,
+  onExecuted: (graph, result) => console.log("executed", result),
+  onError: (graph, err) => console.error("failed", err),
+});
+```
+
+The executor polls the node, finds executable authorization graphs, verifies them, executes, and submits receipts back as objects. No registration required — execution is permissionless.
+
+**Build and submit an authorization object:**
+
+```ts
+import { buildEvmSpotAuthorizationObject, AonNodeClient } from "./src/index.ts";
+import { privateKeyToAccount } from "viem/accounts";
+
+const account = privateKeyToAccount("0x...");
+const client  = new AonNodeClient("http://localhost:8787");
+
+const domain = {
+  name: "AON EVM Spot",
+  version: "1",
+  chainId: 1,
+  verifyingContract: "0x...",
+};
+
+const authorization = {
+  grantor:             account.address,
+  settlementContract:  "0x...",
+  baseToken:           "0x...",
+  quoteToken:          "0x...",
+  marketId:            "0x" + "aa".repeat(32),
+  sideMask:            3,
+  maxBaseExposure:     "1000000000000000000",
+  maxQuoteExposure:    "1000000000000000000",
+  maxExecutorFeeQuote: "1000000000000000",
+  minPrice:            "0",
+  maxPrice:            "999999999999999999999",
+  validAfter:          String(Math.floor(Date.now() / 1000) - 60),
+  validBefore:         String(Math.floor(Date.now() / 1000) + 3600),
+  authNonce:           "0x" + "bb".repeat(32),
+};
+
+const AUTH_TYPES = {
+  TradingSessionAuthorization: [
+    { name: "grantor",              type: "address" },
+    { name: "settlementContract",   type: "address" },
+    { name: "baseToken",            type: "address" },
+    { name: "quoteToken",           type: "address" },
+    { name: "marketId",             type: "bytes32" },
+    { name: "sideMask",             type: "uint8"   },
+    { name: "maxBaseExposure",      type: "uint256" },
+    { name: "maxQuoteExposure",     type: "uint256" },
+    { name: "maxExecutorFeeQuote",  type: "uint256" },
+    { name: "minPrice",             type: "uint256" },
+    { name: "maxPrice",             type: "uint256" },
+    { name: "validAfter",           type: "uint64"  },
+    { name: "validBefore",          type: "uint64"  },
+    { name: "authNonce",            type: "bytes32" },
+  ],
+};
+
+const signature = await account.signTypedData({
+  domain,
+  types: AUTH_TYPES,
+  primaryType: "TradingSessionAuthorization",
+  message: authorization,
+});
+
+const authObject = await buildEvmSpotAuthorizationObject({
+  authorization,
+  signature,
+  signer: account.address,
+  domain,
+  types: AUTH_TYPES,
+});
+
+const result = await client.putObject(authObject);
+console.log("submitted:", result.objectHash);
+```
+
+The object is now on the network. Any executor watching the `aon:evm-spot` namespace can discover and act on it.
+
+**Run the full test suite against a live node:**
+
+```bash
+AON_URL=http://localhost:8787 npx tsx test.mjs
+# 51 passed  0 failed  51 total
+```
+
+---
+
 ## Architecture
 
 ```
 src/
   index.ts                   — Public SDK surface (all exports)
   client.ts                  — HTTP client for AON nodes
-  object.ts                  — AonObject type
-  executor.ts                — Permissionless executor loop
+  object.ts                  — AonObject type, canonicalization, hashing
+  executor.ts                — Permissionless executor loop with backoff
   executable.ts              — Graph evaluation (csd-usdc)
   executableEvmSpot.ts       — Graph evaluation (evm-spot)
   helpers.ts                 — Query, construction, and verification helpers
@@ -28,9 +147,8 @@ src/
   contracts/
     CsdUsdcSettlement.sol    — CSD/USDC settlement contract
     GenericEvmSpotSettlement.sol — EVM spot settlement contract
-  utils/canonical.ts
 
-scripts/                     — Example executor scripts
+scripts/                     — Example scripts
   testEvmSpotObjects.mjs
   testExecutorAuto.mjs
   testReserveFlow.mjs
@@ -39,9 +157,9 @@ scripts/                     — Example executor scripts
 
 ## Concepts
 
-**Executors** are permissionless participants that discover executable authorization graphs on the network and consume them. Anyone can run an executor against any AON node. No registration, no node operator permission, and no prior coordination required.
+**Executors** are permissionless participants that discover executable authorization graphs on the network and consume them. Anyone can run an executor against any AON node. No registration, no node operator permission, no prior coordination required.
 
-**Namespace adapters** define how a specific namespace interprets objects: what valid authorization looks like, how to verify proofs, how to execute, and what the executor reward is. The SDK ships with two adapters: `aon:csd-usdc` and `aon:evm-spot`.
+**Namespace adapters** define how a specific namespace interprets objects — what valid authorization looks like, how to verify proofs, how to execute, and what the executor reward is. The SDK ships with two adapters: `aon:csd-usdc` and `aon:evm-spot`.
 
 **Helpers** are pure functions over `AonObject[]` arrays. They cover every query and construction operation that executors need — filtering, enrichment, object building, signature verification.
 
@@ -53,14 +171,12 @@ import { runExecutor } from "aon-sdk";
 await runExecutor({
   nodeUrl: "http://localhost:8787",
   namespace: "aon:evm-spot",
-  mode: "contract",       // "contract" | "simulate" | "off"
+  mode: "contract",
   pollIntervalMs: 5000,
   onExecuted: (graph, result) => console.log("executed", result),
   onError: (graph, err) => console.error("failed", err),
 });
 ```
-
-The executor polls the node, finds executable graphs in the given namespace, verifies them, executes, and submits Receipt Objects back to the node via `POST /v1/objects`.
 
 ## Node client
 
@@ -69,25 +185,16 @@ import { AonNodeClient } from "aon-sdk";
 
 const client = new AonNodeClient("http://localhost:8787");
 
-// Fetch a single object
-const obj = await client.getObject("0xabc...");
+const obj      = await client.getObject("0xabc...");
+const objects  = await client.listObjects({ namespace: "aon:evm-spot" });
+const graph    = await client.walkGraph("0xabc...");
 
-// Submit an object
 await client.putObject(myObject);
-
-// List objects with filters
-const objects = await client.listObjects({ namespace: "aon:evm-spot" });
-
-// Walk the inbound graph from a root hash
-const graph = await client.walkGraph("0xabc...");
-
-// Get assembled graph
-const graph = await client.getGraph("0xabc...");
 ```
 
 ## Query helpers
 
-All helpers take an `AonObject[]` array fetched from a node. They are pure functions. No network calls, no storage.
+All helpers take an `AonObject[]` array. They are pure functions — no network calls.
 
 ```ts
 import {
@@ -98,10 +205,7 @@ import {
   expiredReserves,
   receipts,
   receiptsByReserve,
-  receiptsByProof,
-  receiptsByTxid,
   canonicalReceiptByReserve,
-  canonicalReceiptByTxid,
   isRevoked,
   revocationsForTarget,
   listNamespaces,
@@ -109,152 +213,58 @@ import {
 
 const objects = await client.listObjects();
 
-// Find all executable graphs in a namespace
 const executable = findExecutable(objects, { namespace: "aon:evm-spot" });
+const next       = findNextExecutable(objects, "aon:csd-usdc");
+const auths      = openAuthorizations(objects, "aon:csd-usdc");
+const reserves   = openReserves(objects, "aon:csd-usdc");
+const expired    = expiredReserves(objects, "aon:csd-usdc");
+const revoked    = isRevoked(objects, authHash);
 
-// Find the next executable graph
-const next = findNextExecutable(objects, "aon:csd-usdc");
-
-// Open authorizations (no reserve yet, not expired, not revoked)
-const auths = openAuthorizations(objects, "aon:csd-usdc");
-
-// Open reserves (no receipt yet)
-const reserves = openReserves(objects, "aon:csd-usdc");
-
-// Expired reserves eligible for refund
-const expired = expiredReserves(objects, "aon:csd-usdc");
-
-// Receipt queries
-const allReceipts = receipts(objects, { namespace: "aon:csd-usdc" });
-const byReserve = receiptsByReserve(objects, reserveHash);
-const byProof = receiptsByProof(objects, proofHash);
-const byTxid = receiptsByTxid(objects, txid);
-const { canonical, duplicateCount } = canonicalReceiptByReserve(objects, reserveHash);
-
-// Revocations
-const revoked = isRevoked(objects, authHash);
-const revocations = revocationsForTarget(objects, authHash);
-
-// List registered namespace adapters
-const namespaces = listNamespaces();
+const { canonical } = canonicalReceiptByReserve(objects, reserveHash);
 ```
 
 ## Object construction helpers
 
-Build and verify authorization objects before submitting them to a node.
-
 ```ts
 import {
-  buildCsdUsdcAuthorizationObject,
   buildEvmSpotAuthorizationObject,
   buildEvmSpotOrderObject,
   buildEvmSpotFillObject,
+  buildCsdUsdcAuthorizationObject,
   buildRevocationObject,
   buildReceiptObject,
   makeCsdPaymentProofObject,
 } from "aon-sdk";
-
-// Build a CSD/USDC authorization from an EIP-712 signed payload
-const authObj = await buildCsdUsdcAuthorizationObject({
-  authorization: { buyer, sellerUsdcRecipient, ... },
-  signature: "0x...",
-  domain: { name: "AON", chainId: 1, verifyingContract: "0x..." },
-});
-
-// Build an EVM spot trading session authorization
-const authObj = await buildEvmSpotAuthorizationObject({
-  authorization: { grantor, settlementContract, ... },
-  signature: "0x...",
-  domain: { ... },
-});
-
-// Build an EVM spot order
-const orderObj = await buildEvmSpotOrderObject({
-  authorizationHash: "0xabc...",
-  authorization: authObject,
-  order: { trader, marketId, side, price, baseAmount, ... },
-  signature: "0x...",
-  domain: { ... },
-});
-
-// Build an EVM spot fill (matcher role)
-const fillObj = buildEvmSpotFillObject({
-  makerAuthorizationHash: "0x...",
-  takerAuthorizationHash: "0x...",
-  makerOrderHash: "0x...",
-  takerOrderHash: "0x...",
-  fill: { price, baseAmount, quoteAmount, fillNonce, ... },
-});
-
-// Build a CSD payment proof from a transaction ID
-const proofObj = await makeCsdPaymentProofObject({
-  reserveHash: "0x...",
-  txid: "abc123...",
-  expectedRecipientScriptPubKey: "0x...",
-  expectedAmount: "1000000",
-  minConfirmations: 3,
-});
-
-// Build a revocation
-const revocationObj = await buildRevocationObject(objects, {
-  targetHash: "0x...",
-  signature: { signature: "0x...", domain: { ... }, ... },
-  reason: "user_revoked",
-  nonce: "0x...",
-});
 ```
 
-## Namespace adapters
-
-```ts
-import { getNamespaceAdapter, csdUsdcAdapter, evmSpotAdapter } from "aon-sdk";
-
-const adapter = getNamespaceAdapter("aon:evm-spot");
-
-// Summarize an authorization for display
-const summary = adapter.summarizeAuthorization(authObject);
-
-// Get the executor reward for a graph
-const reward = adapter.reward(graph);
-
-// Verify a graph before execution
-const result = adapter.verify(graph);
-
-// Execute a graph
-const result = await adapter.execute({ ...graph, mode: "contract" });
-```
+All builders verify the signature before returning. They return a finalized `AonObject` with `objectHash` already computed — ready to submit via `client.putObject`.
 
 ## Namespaces
 
 ### `aon:csd-usdc`
-Coordinates settlement between CSD (a custom settlement layer) and USDC on EVM. Flow: authorization → reserve (USDC lock on-chain) → proof (CSD payment txid) → receipt (USDC released to seller).
+
+Atomic settlement between CSD (a custom settlement layer) and USDC on EVM.
+
+```
+authorization → reserve (USDC lock) → proof (CSD txid) → receipt (USDC released)
+```
 
 ### `aon:evm-spot`
-Coordinates spot trading on EVM. Flow: maker authorization + taker authorization → maker order + taker order → fill → receipt (settled on-chain via settlement contract).
 
-## Adding a namespace
+Spot trading on EVM — no reserve step, partial fills supported.
 
-Implement the `NamespaceAdapter` interface and register it:
-
-```ts
-import type { NamespaceAdapter } from "aon-sdk";
-
-const myAdapter: NamespaceAdapter = {
-  namespace: "aon:my-namespace",
-  authorizationType: "my_auth",
-  reserveType: "my_reserve",
-  proofType: "my_proof",
-
-  normalizeAuthorization(auth) { ... },
-  types() { ... },
-  summarizeAuthorization(auth) { ... },
-  reward(graph) { ... },
-  verify(graph) { ... },
-  async execute(graph) { ... },
-  async lock({ authorization }) { ... },
-};
 ```
+makerAuth + takerAuth → makerOrder + takerOrder → fill → receipt
+```
+
+### Adding a namespace
+
+Implement `NamespaceAdapter` and register it in `src/namespaces/index.ts`. The adapter defines authorization structure, verification, execution, and reward logic for your namespace. The protocol and node require no changes.
 
 ## Node
 
-The AON node that the SDK connects to lives in [aon](https://github.com/intervalplace/aon). The node is transport-agnostic infrastructure that propagates objects without understanding their contents. The SDK is the layer that gives those objects meaning.
+The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon). Run a local node for development or connect to the public bootstrap node.
+
+## Specification
+
+The full protocol specification is at [SPEC.md](https://github.com/intervalplace/aon/blob/master/SPEC.md).
