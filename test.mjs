@@ -43,7 +43,10 @@ const SETTLEMENT_CONTRACT =
 
 const BASE_TOKEN   = "0x0000000000000000000000000000000000000010";
 const QUOTE_TOKEN  = "0x0000000000000000000000000000000000000020";
-const MARKET_ID    = `0x${"aa".repeat(32)}`;
+// Unique per run — prevents objects from previous runs polluting graph evaluation
+const RUN_ID = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
+const MARKET_ID = `0x${RUN_ID.repeat(8)}`;
+console.log(`[test] run id: ${RUN_ID}  market: ${MARKET_ID}`);
 
 // Fixed test keys — never use on mainnet
 const MAKER = privateKeyToAccount(
