@@ -11,6 +11,9 @@
 // satisfy the authorization requirements can execute. No node operator
 // permission is required. No registration is required.
 //
+// The poll loop uses exponential backoff when the node is unreachable or
+// returns errors. On success it resets to the configured pollIntervalMs.
+//
 // Usage:
 //
 //   import { runExecutor } from "aon-sdk";
@@ -41,15 +44,67 @@ export type ExecutorConfig = {
   // "off"      — verify only, do not execute
   mode: "contract" | "simulate" | "off";
 
-  // How often to poll the node for new objects (ms)
+  // How often to poll the node for new objects (ms). Default: 5000
   pollIntervalMs?: number;
+
+  // Backoff config when polls fail (node down, network error, etc.)
+  backoff?: {
+    // Initial wait after first failure (ms). Default: 1000
+    initialMs?: number;
+    // Multiplier applied on each successive failure. Default: 2
+    factor?: number;
+    // Maximum wait between retries (ms). Default: 60000
+    maxMs?: number;
+  };
 
   // Called when execution succeeds — useful for logging or monitoring
   onExecuted?: (graph: any, result: any) => void;
 
-  // Called when execution fails — useful for alerting
-  onError?: (graph: any, error: unknown) => void;
+  // Called when a poll or execution fails — useful for alerting
+  onError?: (err: unknown, context: "poll" | "execute") => void;
 };
+
+// ── Backoff state ─────────────────────────────────────────────────────────────
+
+type BackoffState = {
+  consecutiveFailures: number;
+  currentDelayMs: number;
+  initialMs: number;
+  factor: number;
+  maxMs: number;
+};
+
+function makeBackoffState(config: ExecutorConfig): BackoffState {
+  return {
+    consecutiveFailures: 0,
+    currentDelayMs: config.backoff?.initialMs ?? 1000,
+    initialMs: config.backoff?.initialMs ?? 1000,
+    factor: config.backoff?.factor ?? 2,
+    maxMs: config.backoff?.maxMs ?? 60_000,
+  };
+}
+
+function onPollSuccess(state: BackoffState, intervalMs: number) {
+  if (state.consecutiveFailures > 0) {
+    console.log("[executor] node reachable again, resetting backoff");
+  }
+  state.consecutiveFailures = 0;
+  state.currentDelayMs = state.initialMs;
+  return intervalMs;
+}
+
+function onPollFailure(state: BackoffState): number {
+  state.consecutiveFailures++;
+  const delay = Math.min(state.currentDelayMs, state.maxMs);
+  state.currentDelayMs = Math.min(state.currentDelayMs * state.factor, state.maxMs);
+  console.warn(
+    `[executor] poll failed (${state.consecutiveFailures} consecutive), ` +
+    `retrying in ${delay}ms`
+  );
+  return delay;
+}
+
+// ── Execution helpers ─────────────────────────────────────────────────────────
 
 async function findGraphs(objects: AonObject[], namespace: string) {
   if (namespace === "aon:evm-spot") {
@@ -65,7 +120,6 @@ async function tryExecuteGraph(
 ) {
   const adapter = getNamespaceAdapter(config.namespace);
 
-  // Verify the graph is valid before attempting execution
   const verified = adapter.verify(graph);
   if (!verified?.ok) {
     console.log("[executor] graph failed verification, skipping", {
@@ -74,7 +128,6 @@ async function tryExecuteGraph(
     return;
   }
 
-  // Execute
   const result = await adapter.execute({ ...graph, mode: config.mode });
 
   console.log("[executor] executed graph", {
@@ -83,7 +136,6 @@ async function tryExecuteGraph(
     result,
   });
 
-  // Submit receipt back to the node as an AonObject
   if (result?.receiptObject) {
     await client.putObject(result.receiptObject);
     console.log("[executor] submitted receipt", result.receiptObject.objectHash);
@@ -94,7 +146,6 @@ async function tryExecuteGraph(
 
 async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
   const objects = await client.listObjects({ namespace: config.namespace });
-
   const graphs = await findGraphs(objects, config.namespace);
 
   if (graphs.length === 0) return;
@@ -106,30 +157,53 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
       await tryExecuteGraph(graph, config, client);
     } catch (err) {
       console.error("[executor] execution failed", err);
-      config.onError?.(graph, err);
+      config.onError?.(err, "execute");
     }
   }
 }
 
+// ── Main loop ─────────────────────────────────────────────────────────────────
+
 export async function runExecutor(config: ExecutorConfig) {
   const client = new AonNodeClient(config.nodeUrl);
   const intervalMs = config.pollIntervalMs ?? 5000;
+  const backoff = makeBackoffState(config);
 
   console.log("[executor] starting", {
     nodeUrl: config.nodeUrl,
     namespace: config.namespace,
     mode: config.mode,
     pollIntervalMs: intervalMs,
+    backoff: {
+      initialMs: backoff.initialMs,
+      factor: backoff.factor,
+      maxMs: backoff.maxMs,
+    },
   });
 
-  // Run immediately, then on interval
-  await pollOnce(config, client);
+  // Run immediately, then loop
+  let nextDelayMs = intervalMs;
 
-  setInterval(async () => {
+  const loop = async () => {
     try {
       await pollOnce(config, client);
+      nextDelayMs = onPollSuccess(backoff, intervalMs);
     } catch (err) {
-      console.error("[executor] poll failed", err);
+      config.onError?.(err, "poll");
+      nextDelayMs = onPollFailure(backoff);
     }
-  }, intervalMs);
+
+    setTimeout(loop, nextDelayMs);
+  };
+
+  // First poll immediately, then start the loop
+  try {
+    await pollOnce(config, client);
+    nextDelayMs = onPollSuccess(backoff, intervalMs);
+  } catch (err) {
+    config.onError?.(err, "poll");
+    nextDelayMs = onPollFailure(backoff);
+  }
+
+  setTimeout(loop, nextDelayMs);
 }
