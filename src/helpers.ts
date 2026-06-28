@@ -1,7 +1,7 @@
 // helpers.ts
 //
 // Generic query helpers over AonObject arrays.
-// These functions know nothing about specific namespaces. They work
+// These functions know nothing about specific namespaces — they work
 // on the structural properties of objects (objectType, references, createdAt)
 // and delegate anything semantic to the registered namespace driver.
 
