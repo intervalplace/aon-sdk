@@ -1,7 +1,6 @@
 import { createHash } from "crypto";
 import type { Hex } from "viem";
 import type { AonObject } from "../object.js";
-import { verifyCsdPaymentProof } from "../csdProof.js";
 
 export type CsdProof = any;
 
