@@ -26,8 +26,6 @@
 //   });
 
 import { AonNodeClient } from "./client.js";
-import { findExecutableGraphs } from "./executable.js";
-import { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
 import { getNamespace } from "./namespaces/index.js";
 import { registerDefaultNamespaces } from "./namespaces/register-defaults.js";
 import type { AonObject } from "./object.js";
@@ -107,21 +105,13 @@ function onPollFailure(state: BackoffState): number {
 
 // ── Execution helpers ─────────────────────────────────────────────────────────
 
-async function findGraphs(objects: AonObject[], namespace: string) {
-  if (namespace === "aon:evm-spot") {
-    return findExecutableEvmSpotGraphs(objects);
-  }
-  return findExecutableGraphs(objects, { namespace });
-}
-
 async function tryExecuteGraph(
   graph: any,
+  driver: ReturnType<typeof getNamespace>,
   config: ExecutorConfig,
   client: AonNodeClient
 ) {
-const driver = getNamespace(config.namespace);
-
-const verified = driver.verify?.(graph) ?? { ok: true };
+  const verified = driver.verify?.(graph) ?? { ok: true };
   if (!verified?.ok) {
     console.log("[executor] graph failed verification, skipping", {
       reason: verified?.reason,
@@ -129,11 +119,11 @@ const verified = driver.verify?.(graph) ?? { ok: true };
     return;
   }
 
-if (!driver.execute) throw new Error("NAMESPACE_EXECUTOR_MISSING");
+  if (!driver.execute) throw new Error("NAMESPACE_EXECUTOR_MISSING");
 
-const result = await driver.execute(graph, {
-  mode: config.mode,
-});
+  const result = await driver.execute(graph, {
+    mode: config.mode,
+  });
 
   
   console.log("[executor] executed graph", {
@@ -152,7 +142,8 @@ const result = await driver.execute(graph, {
 
 async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
   const objects = await client.listObjects({ namespace: config.namespace });
-  const graphs = await findGraphs(objects, config.namespace);
+  const driver = getNamespace(config.namespace);
+  const graphs = driver.evaluate(objects);
 
   if (graphs.length === 0) return;
 
@@ -160,7 +151,7 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
 
   for (const graph of graphs) {
     try {
-      await tryExecuteGraph(graph, config, client);
+      await tryExecuteGraph(graph, driver, config, client);
     } catch (err) {
       console.error("[executor] execution failed", err);
       config.onError?.(err, "execute");
