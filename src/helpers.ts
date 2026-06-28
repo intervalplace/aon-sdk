@@ -318,15 +318,15 @@ export async function buildCsdUsdcAuthorizationObject(body: {
       authorizationType: "csd_usdc_release",
       authorization,
       summary: body.summary ?? null,
-      signature: {
-        scheme: "eip712",
-        signer,
-        domain: body.domain,
-        types: body.types ?? adapter.types(),
-        primaryType: body.primaryType ?? "CsdUsdcAuthorization",
-        message: authorization,
-        signature: body.signature,
-      },
+    },
+    signature: {
+      scheme: "eip712",
+      signer,
+      domain: body.domain,
+      types: body.types ?? adapter.types(),
+      primaryType: body.primaryType ?? "CsdUsdcAuthorization",
+      message: authorization,
+      signature: body.signature,
     },
   } as any);
 }
@@ -372,15 +372,15 @@ export async function buildEvmSpotAuthorizationObject(body: {
       authorizationType: "evm_spot_session",
       authorization,
       summary: body.summary ?? null,
-      signature: {
-        scheme: "eip712",
-        signer,
-        domain: body.domain,
-        types: body.types ?? adapter.types(),
-        primaryType: body.primaryType ?? "TradingSessionAuthorization",
-        message: authorization,
-        signature: body.signature,
-      },
+    },
+    signature: {
+      scheme: "eip712",
+      signer,
+      domain: body.domain,
+      types: body.types ?? adapter.types(),
+      primaryType: body.primaryType ?? "TradingSessionAuthorization",
+      message: authorization,
+      signature: body.signature,
     },
   } as any);
 }
@@ -446,7 +446,7 @@ export async function buildEvmSpotOrderObject(
     expectedSigner: signer,
     code: "BAD_ORDER_SIGNATURE",
   });
-
+  
   return finalizeObject({
     objectType: "order",
     schemaVersion: "1",
@@ -458,15 +458,15 @@ export async function buildEvmSpotOrderObject(
       orderType: "evm_spot_order",
       order,
       summary: body.summary ?? null,
-      signature: {
-        scheme: "eip712",
-        signer,
-        domain: body.domain,
-        types: body.types ?? orderTypes,
-        primaryType: body.primaryType ?? "SignedOrder",
-        message: order,
-        signature: body.signature,
-      },
+    },
+    signature: {
+      scheme: "eip712",
+      signer,
+      domain: body.domain,
+      types: body.types ?? orderTypes,
+      primaryType: body.primaryType ?? "SignedOrder",
+      message: order,
+      signature: body.signature,
     },
   } as any);
 }
@@ -569,15 +569,15 @@ export async function buildRevocationObject(
       targetHash,
       reason,
       nonce,
-      signature: {
-        scheme: body.signature.scheme ?? "eip712",
-        signer,
-        domain: body.signature.domain,
-        types: body.signature.types ?? revocationTypes(),
-        primaryType: body.signature.primaryType ?? "AonRevocation",
-        message: revocationMessage,
-        signature: body.signature.signature,
-      },
+    },
+    signature: {
+      scheme: body.signature.scheme ?? "eip712",
+      signer,
+      domain: body.signature.domain,
+      types: body.signature.types ?? revocationTypes(),
+      primaryType: body.signature.primaryType ?? "AonRevocation",
+      message: revocationMessage,
+      signature: body.signature.signature,
     },
   } as any);
 }
