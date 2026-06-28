@@ -1,87 +1,72 @@
-// index.ts — public surface of the AON SDK
+// @aon/sdk
+//
+// The minimal, generic client layer for the Authorization Object Network.
+//
+// This package knows nothing about specific namespaces, local truths,
+// or execution logic. It provides:
+//   - The AonObject type and hashing
+//   - The HTTP client for talking to nodes
+//   - The NamespaceDriver interface and registry
+//   - The generic executor loop
+//   - Generic query helpers over object arrays
+//
+// To work with a specific namespace, install its package separately:
+//   npm install @aon/namespace-evm-spot
+//   npm install @aon/namespace-csd-usdc
 
-// Node client
+// ── Core ──────────────────────────────────────────────────────────────────────
+
+export type { AonObject } from "./object.js";
+export { hashObject, finalizeObject, canonicalize } from "./object.js";
+
 export { AonNodeClient } from "./client.js";
 
-// Core object type
-export type { AonObject } from "./object.js";
+// ── Namespace driver interface and registry ───────────────────────────────────
 
-// Graph evaluation
-export { findExecutableGraphs } from "./executable.js";
-export { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
-
-// Namespace adapters
 export {
   registerNamespace,
   getNamespace,
   listNamespaces,
   evaluateNamespace,
-} from "./namespaces/index.js";
+} from "./namespace-driver.js";
 
 export type {
   NamespaceDriver,
   NamespaceExecutionMode,
   NamespaceEvaluation,
-} from "./namespaces/index.js";
+} from "./namespace-driver.js";
 
-export { registerDefaultNamespaces } from "./namespaces/register-defaults.js";
-export { evmSpotNamespace } from "./namespaces/evm-spot/index.js";
-export { csdUsdcNamespace } from "./namespaces/csd-usdc/index.js";
+// ── Executor ──────────────────────────────────────────────────────────────────
 
-// Executor loop
 export { runExecutor } from "./executor.js";
 export type { ExecutorConfig } from "./executor.js";
 
-// Query and construction helpers
-export {
-  // Utilities
-  refsLower,
-  requireHex,
-  nowMs,
+// ── Generic graph evaluation ──────────────────────────────────────────────────
 
-  // Time and revocation
+export { findExecutableGraphs } from "./executable.js";
+
+// ── Generic query helpers ─────────────────────────────────────────────────────
+
+export {
+  refsLower,
+  nowMs,
   isAuthorizationTimeActive,
   isAuthorizationActive,
   isRevoked,
   revocationsForTarget,
-
-  // Receipt / reserve checks
   hasReceiptReferencing,
   hasReserveForAuthorization,
-
-  // Graph helpers
   graphNamespace,
   graphPrimaryAuthorization,
   enrichGraph,
-
-  // Executable queries
   findExecutable,
   findNextExecutable,
-
-  // Open object queries
-  openAuthorizations,
   openReserves,
   expiredReserves,
-
-  // Receipt queries
   receipts,
   receiptsByReserve,
   receiptsByProof,
   receiptsByTxid,
   canonicalReceiptByReserve,
   canonicalReceiptByTxid,
-
-  // EIP-712 verification
-  requireValidTypedSignature,
-
-  // Object construction
-  buildCsdUsdcAuthorizationObject,
-  buildEvmSpotAuthorizationObject,
-  buildEvmSpotOrderObject,
-  buildEvmSpotFillObject,
-  buildRevocationObject,
-  buildReceiptObject,
 } from "./helpers.js";
-
-// Proof construction
-export { makeCsdPaymentProofObject } from "./proofs/csdFromTxid.js";
