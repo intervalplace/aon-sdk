@@ -259,14 +259,6 @@ makerAuth + takerAuth → makerOrder + takerOrder → fill → receipt
 
 ### Adding a namespace
 
-Implement `NamespaceAdapter` and register it in `src/namespaces/index.ts`. The adapter defines authorization structure, verification, execution, and reward logic for your namespace. The protocol and node require no changes.
-
-## Node
-
-The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon). Run a local node for development or connect to the public bootstrap node.
-
-### Adding a namespace
-
 Implement `NamespaceDriver` and register it. No core files need to change — the pattern is identical to adding a transport to the node.
 
 Full guide: [NAMESPACES.md](./NAMESPACES.md)
@@ -313,6 +305,7 @@ await runExecutor({
 ## Node
 
 The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon). Run a local node for development or connect to the public bootstrap node.
+
 
 ## Specification
 
