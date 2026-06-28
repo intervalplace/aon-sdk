@@ -11,6 +11,11 @@ export type NamespaceEvaluation = {
 export type NamespaceDriver = {
   namespace: string;
 
+  normalizeAuthorization?: (auth: any) => any;
+types?: () => any;
+orderTypes?: () => any;
+revocationTypes?: () => any;
+
   validateObject?: (obj: AonObject, graph?: any) => void | Promise<void>;
 
   evaluate: (objects: AonObject[], opts?: any) => NamespaceEvaluation | any[];
