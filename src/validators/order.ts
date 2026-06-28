@@ -1,26 +1,22 @@
 import type { AonObject } from "../object.js";
-
 import { verifyObjectSignature } from "./signatures.js";
-
 import {
-    requireNamespace,
-    requireReferenceTypes,
+  requireNamespace,
+  requireReferenceTypes,
+  type ValidationGraph,
 } from "./graph.js";
 
-export async function validateOrder(
-    obj: AonObject
+export async function validateOrder(obj: AonObject) {
+  await verifyObjectSignature(obj);
+}
+
+export async function validateOrderGraph(
+  obj: AonObject,
+  graph: ValidationGraph
 ) {
+  await validateOrder(obj);
 
-    await verifyObjectSignature(obj);
+  const [auth] = requireReferenceTypes(graph, obj, ["authorization"]);
 
-    const [auth] =
-        requireReferenceTypes(
-            obj,
-            ["authorization"]
-        );
-
-    requireNamespace(
-        auth.namespace,
-        obj.namespace
-    );
+  requireNamespace(auth.namespace, obj.namespace);
 }
