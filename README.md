@@ -267,4 +267,4 @@ The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon).
 
 ## Specification
 
-The full protocol specification is at [SPEC.md]([https://github.com/intervalplace/aon/blob/master/docs/SPEC.md](https://github.com/intervalplace/aon/blob/master/docs/spec.md)).
+The full protocol specification is at [SPEC.md](https://github.com/intervalplace/aon/blob/master/docs/spec.md).
