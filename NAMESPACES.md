@@ -2,7 +2,7 @@
 
 A namespace defines the semantic rules for a category of authorization objects. It tells the network what objects mean, how to evaluate whether execution is possible, how to verify correctness, and how to execute.
 
-Adding a namespace requires no changes to any core SDK file. The pattern is the same as adding a transport to the node — implement an interface, register it, done.
+Adding a namespace requires no changes to any core SDK file. The pattern is the same as adding a transport to the node: implement an interface, register it, done.
 
 ---
 
@@ -195,7 +195,7 @@ Your namespace can define any object types it needs. The protocol only recognize
 
 For example, `aon:csd-usdc` defines `reserve` as a namespace-specific type. `aon:evm-spot` defines `order` and `fill`. Your namespace can define whatever makes sense for your coordination pattern.
 
-Objects are submitted via `POST /v1/objects` on any node — the node stores them regardless of type.
+Objects are submitted via `POST /v1/objects` on any node. The node stores them regardless of type.
 
 ---
 
