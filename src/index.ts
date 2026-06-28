@@ -12,12 +12,21 @@ export { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
 
 // Namespace adapters
 export {
-  getNamespaceAdapter,
-  listNamespaceAdapters,
-  csdUsdcAdapter,
-  evmSpotAdapter,
+  registerNamespace,
+  getNamespace,
+  listNamespaces,
+  evaluateNamespace,
 } from "./namespaces/index.js";
-export type { NamespaceAdapter } from "./namespaces/index.js";
+
+export type {
+  NamespaceDriver,
+  NamespaceExecutionMode,
+  NamespaceEvaluation,
+} from "./namespaces/index.js";
+
+export { registerDefaultNamespaces } from "./namespaces/register-defaults.js";
+export { evmSpotNamespace } from "./namespaces/evm-spot/index.js";
+export { csdUsdcNamespace } from "./namespaces/csd-usdc/index.js";
 
 // Executor loop
 export { runExecutor } from "./executor.js";
