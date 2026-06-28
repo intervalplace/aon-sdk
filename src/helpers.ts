@@ -284,7 +284,7 @@ export async function buildCsdUsdcAuthorizationObject(body: {
   references?: string[];
   summary?: string;
 }): Promise<AonObject> {
-  const adapter = getNamespaceAdapter("aon:csd-usdc");
+  const adapter = getNamespace("aon:csd-usdc");
   const authorization = adapter.normalizeAuthorization(body.authorization);
   const signer = getAddress(body.signer ?? authorization.buyer);
 
@@ -343,7 +343,7 @@ export async function buildEvmSpotAuthorizationObject(body: {
   references?: string[];
   summary?: string;
 }): Promise<AonObject> {
-  const adapter = getNamespaceAdapter("aon:evm-spot");
+  const adapter = getNamespace("aon:evm-spot");
   const authorization = adapter.normalizeAuthorization(body.authorization);
   const signer = getAddress(body.signer ?? authorization.grantor);
 
@@ -593,7 +593,7 @@ export function buildReceiptObject(graph: any, action: any, opts?: {
     graph.makerAuthorization?.namespace ??
     graph.namespace;
 
-  const adapter = getNamespaceAdapter(namespace);
+  const adapter = getNamespace(namespace);
   const verification = adapter.verify(graph);
 
   const refs = [
