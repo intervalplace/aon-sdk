@@ -28,7 +28,8 @@
 import { AonNodeClient } from "./client.js";
 import { findExecutableGraphs } from "./executable.js";
 import { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
-import { getNamespaceAdapter } from "./namespaces/index.js";
+import { getNamespace } from "./namespaces/index.js";
+import { registerDefaultNamespaces } from "./namespaces/register-defaults.js";
 import type { AonObject } from "./object.js";
 
 export type ExecutorConfig = {
@@ -118,9 +119,9 @@ async function tryExecuteGraph(
   config: ExecutorConfig,
   client: AonNodeClient
 ) {
-  const adapter = getNamespaceAdapter(config.namespace);
+const driver = getNamespace(config.namespace);
 
-  const verified = adapter.verify(graph);
+const verified = driver.verify?.(graph) ?? { ok: true };
   if (!verified?.ok) {
     console.log("[executor] graph failed verification, skipping", {
       reason: verified?.reason,
@@ -128,8 +129,13 @@ async function tryExecuteGraph(
     return;
   }
 
-  const result = await adapter.execute({ ...graph, mode: config.mode });
+if (!driver.execute) throw new Error("NAMESPACE_EXECUTOR_MISSING");
 
+const result = await driver.execute(graph, {
+  mode: config.mode,
+});
+
+  
   console.log("[executor] executed graph", {
     namespace: config.namespace,
     mode: config.mode,
@@ -165,6 +171,7 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
 // ── Main loop ─────────────────────────────────────────────────────────────────
 
 export async function runExecutor(config: ExecutorConfig) {
+  registerDefaultNamespaces();
   const client = new AonNodeClient(config.nodeUrl);
   const intervalMs = config.pollIntervalMs ?? 5000;
   const backoff = makeBackoffState(config);
