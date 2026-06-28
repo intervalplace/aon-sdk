@@ -10,7 +10,7 @@
 import { getAddress, verifyTypedData, type Hex } from "viem";
 import type { AonObject } from "./object.js";
 import { finalizeObject } from "./object.js";
-import { getNamespaceAdapter, listNamespaceAdapters } from "./namespaces/index.js";
+import { getNamespace, listNamespaces as listRegisteredNamespaces } from "./namespaces/index.js";
 import { findExecutableGraphs } from "./executable.js";
 import { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
 
@@ -99,8 +99,8 @@ export function graphPrimaryAuthorization(graph: any) {
 }
 
 export function enrichGraph(graph: any) {
-  const adapter = getNamespaceAdapter(graphNamespace(graph));
-  return { ...graph, reward: adapter.reward(graph) };
+const driver = getNamespace(graphNamespace(graph));
+return { ...graph, reward: driver.reward?.(graph) ?? null };
 }
 
 // ── Executable graph queries ──────────────────────────────────────────────────
@@ -141,7 +141,7 @@ export function openAuthorizations(objects: AonObject[], namespace?: string) {
     .filter((a) => !hasReserveForAuthorization(objects, a.objectHash!))
     .filter((a) => isAuthorizationActive(objects, a))
     .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
-    .map((a) => getNamespaceAdapter(a.namespace).summarizeAuthorization(a));
+    .map((a) => a);
 }
 
 export function openReserves(objects: AonObject[], namespace?: string) {
@@ -233,12 +233,7 @@ export function canonicalReceiptByTxid(objects: AonObject[], txid: string) {
 // ── Namespace listing ─────────────────────────────────────────────────────────
 
 export function listNamespaces() {
-  return listNamespaceAdapters().map((a) => ({
-    namespace: a.namespace,
-    authorizationType: a.authorizationType,
-    reserveType: a.reserveType,
-    proofType: a.proofType,
-  }));
+  return listRegisteredNamespaces();
 }
 
 // ── EIP-712 signature verification ───────────────────────────────────────────
