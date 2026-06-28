@@ -71,9 +71,6 @@ export {
   canonicalReceiptByReserve,
   canonicalReceiptByTxid,
 
-  // Namespace listing
-  listNamespaces,
-
   // EIP-712 verification
   requireValidTypedSignature,
 
