@@ -11,8 +11,7 @@ import { getAddress, verifyTypedData, type Hex } from "viem";
 import type { AonObject } from "./object.js";
 import { finalizeObject } from "./object.js";
 import { getNamespace, listNamespaces as listRegisteredNamespaces } from "./namespaces/index.js";
-import { findExecutableGraphs } from "./executable.js";
-import { findExecutableEvmSpotGraphs } from "./executableEvmSpot.js";
+import { getNamespace as getNamespaceDriver } from "./namespaces/index.js";
 
 // ── Utility helpers ───────────────────────────────────────────────────────────
 
@@ -109,10 +108,9 @@ export function findExecutable(
   objects: AonObject[],
   opts?: { namespace?: string; includeCompleted?: boolean }
 ) {
-  const graphs =
-    opts?.namespace === "aon:evm-spot"
-      ? findExecutableEvmSpotGraphs(objects, { includeCompleted: opts?.includeCompleted })
-      : findExecutableGraphs(objects, opts);
+  if (!opts?.namespace) return [];
+  const driver = getNamespaceDriver(opts.namespace);
+  const graphs = driver.evaluate(objects, { includeCompleted: opts?.includeCompleted });
 
   return graphs
     .filter((g: any) => {
