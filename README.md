@@ -265,6 +265,55 @@ Implement `NamespaceAdapter` and register it in `src/namespaces/index.ts`. The a
 
 The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon). Run a local node for development or connect to the public bootstrap node.
 
+### Adding a namespace
+
+Implement `NamespaceDriver` and register it. No core files need to change — the pattern is identical to adding a transport to the node.
+
+Full guide: [NAMESPACES.md](./NAMESPACES.md)
+
+**In short:**
+
+```ts
+// src/namespaces/my-namespace/index.ts
+import type { NamespaceDriver } from "../index.js";
+
+export const myNamespace: NamespaceDriver = {
+  namespace: "aon:my-namespace",
+
+  evaluate(objects) {
+    // find and return executable graphs
+  },
+
+  verify(graph) {
+    return { ok: true };
+  },
+
+  async execute(graph, { mode } = {}) {
+    if (mode === "simulate") return { executed: true, mode, result: "simulated" };
+    // real execution...
+  },
+};
+```
+
+Register and run:
+
+```ts
+import { registerNamespace, runExecutor } from "aon-sdk";
+import { myNamespace } from "./my-namespace/index.js";
+
+registerNamespace(myNamespace);
+
+await runExecutor({
+  nodeUrl: "http://localhost:8787",
+  namespace: "aon:my-namespace",
+  mode: "contract",
+});
+```
+
+## Node
+
+The AON node lives at [intervalplace/aon](https://github.com/intervalplace/aon). Run a local node for development or connect to the public bootstrap node.
+
 ## Specification
 
 The full protocol specification is at [SPEC.md](https://github.com/intervalplace/aon/blob/master/docs/spec.md).
