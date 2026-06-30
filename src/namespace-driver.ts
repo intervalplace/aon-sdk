@@ -1,4 +1,4 @@
-import type { AonObject } from "../object.js";
+import type { AonObject } from "./object.js";
 
 export type NamespaceExecutionMode = "off" | "simulate" | "contract";
 
