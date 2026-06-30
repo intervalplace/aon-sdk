@@ -26,8 +26,8 @@
 //   });
 
 import { AonNodeClient } from "./client.js";
-import { getNamespace } from "./namespaces/index.js";
-import { registerDefaultNamespaces } from "./namespaces/register-defaults.js";
+
+import { getNamespace } from "./namespace-driver.js";
 import type { AonObject } from "./object.js";
 
 export type ExecutorConfig = {
