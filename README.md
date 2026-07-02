@@ -129,12 +129,9 @@ type NamespaceDriver = {
   reward?: (graph: any) => any;
   verify?: (graph: any) => { ok: boolean; reason?: string };
   execute?: (graph: any, args?: { mode?: "off" | "simulate" | "contract" }) => Promise<any>;
-  normalizeAuthorization?: (auth: any) => any;
-  types?: () => any;
-  orderTypes?: () => any;
-  revocationTypes?: () => any;
   validateObject?: (obj: AonObject, graph?: any) => void | Promise<void>;
 };
+
 ```
 
 ## Building a namespace
