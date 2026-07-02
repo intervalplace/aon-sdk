@@ -32,12 +32,16 @@ export class AonNodeClient {
     objectType?: string;
     namespace?: string;
     references?: string;
+    limit?: number;
+    offset?: number;
   }): Promise<AonObject[]> {
     const params = new URLSearchParams();
     if (filter?.objectType) params.set("objectType", filter.objectType);
-    if (filter?.namespace) params.set("namespace", filter.namespace);
+    if (filter?.namespace)  params.set("namespace",  filter.namespace);
     if (filter?.references) params.set("references", filter.references);
-    const res = await fetch(`${this.baseUrl}/v1/objects?${params}`);
+    if (filter?.limit  != null) params.set("limit",  String(filter.limit));
+    if (filter?.offset != null) params.set("offset", String(filter.offset));
+    const res  = await fetch(`${this.baseUrl}/v1/objects?${params}`);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error?.code ?? "LIST_OBJECTS_FAILED");
     return json.objects;
