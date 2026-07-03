@@ -160,7 +160,25 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
   }
 
   const driver = getNamespace(config.namespace);
-  const raw = driver.evaluate(allObjects);
+
+  // Run validateObject on each fetched object. Invalid objects are removed
+  // before graph evaluation so the executor never acts on them.
+  // validateObject is optional on the driver — namespaces that don't implement
+  // it pass all objects through unchanged.
+  const validObjects: any[] = [];
+  for (const obj of allObjects) {
+    try {
+      await driver.validateObject?.(obj);
+      validObjects.push(obj);
+    } catch (err: any) {
+      console.warn("[executor] object failed validation — skipping", {
+        hash: obj.objectHash,
+        error: err.message,
+      });
+    }
+  }
+
+  const raw = driver.evaluate(validObjects);
   const graphs = (Array.isArray(raw) ? raw : (raw.graphs ?? [])).filter(
     (g: any) => g.status === "executable"
   );
