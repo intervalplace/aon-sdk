@@ -37,7 +37,14 @@ export function registerNamespace(driver: NamespaceDriver) {
 
 export function getNamespace(namespace: string) {
   const driver = drivers.get(namespace);
-  if (!driver) throw new Error("UNSUPPORTED_NAMESPACE");
+  if (!driver) {
+    // This is a configuration error — the executor is misconfigured with an
+    // unknown namespace. Mark it distinctly so callers can surface it as fatal
+    // rather than triggering exponential backoff as if it were a transient failure.
+    const err = new Error(`UNSUPPORTED_NAMESPACE: "${namespace}" is not registered`);
+    (err as any).fatal = true;
+    throw err;
+  }
   return driver;
 }
 

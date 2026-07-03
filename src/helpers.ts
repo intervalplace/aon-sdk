@@ -38,11 +38,17 @@ export function isRevoked(objects: AonObject[], targetHash: string) {
 export function isAuthorizationTimeActive(auth: AonObject) {
   const a = (auth.payload as any)?.authorization;
   if (!a) return false;
-  const now = Math.floor(Date.now() / 1000);
-  const validAfter  = Number(a.validAfter  ?? 0);
-  const validBefore = Number(a.validBefore ?? 0);
-  if (Number.isFinite(validAfter)  && now < validAfter)  return false;
-  if (Number.isFinite(validBefore) && validBefore > 0 && now > validBefore) return false;
+  // Use BigInt for timestamp comparisons — validAfter/validBefore are uint64
+  // strings. Number() loses precision above 2^53; BigInt is exact.
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  try {
+    const validAfter  = BigInt(a.validAfter  ?? 0);
+    const validBefore = BigInt(a.validBefore ?? 0);
+    if (now < validAfter) return false;
+    if (validBefore > 0n && now > validBefore) return false;
+  } catch {
+    return false; // unparseable timestamp
+  }
   return true;
 }
 

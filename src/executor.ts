@@ -141,9 +141,27 @@ async function tryExecuteGraph(
 }
 
 async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
-  const objects = await client.listObjects({ namespace: config.namespace });
+  // Paginate through all objects — a single page (default 50) misses graphs
+  // that reference objects beyond the first page.
+  const allObjects: any[] = [];
+  const pageSize = 200;
+  let offset = 0;
+
+  while (true) {
+    const page = await client.listObjects({
+      namespace: config.namespace,
+      limit: pageSize,
+      offset,
+    });
+    const batch = page.objects ?? page;
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    allObjects.push(...batch);
+    if (allObjects.length >= (page.total ?? batch.length)) break;
+    offset += pageSize;
+  }
+
   const driver = getNamespace(config.namespace);
-  const raw = driver.evaluate(objects);
+  const raw = driver.evaluate(allObjects);
   const graphs = (Array.isArray(raw) ? raw : (raw.graphs ?? [])).filter(
     (g: any) => g.status === "executable"
   );
@@ -152,7 +170,13 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
 
   console.log(`[executor] found ${graphs.length} executable graph(s)`);
 
+  const attempted = new Set<string>();
+
   for (const graph of graphs) {
+    const graphId = graph.fill?.objectHash ?? graph.receipt?.objectHash ?? JSON.stringify(graph).slice(0, 64);
+    if (attempted.has(graphId)) continue;
+    attempted.add(graphId);
+
     try {
       await tryExecuteGraph(graph, driver, config, client);
     } catch (err) {
@@ -182,13 +206,19 @@ export async function runExecutor(config: ExecutorConfig) {
   });
 
   // Run immediately, then loop
+
   let nextDelayMs = intervalMs;
 
   const loop = async () => {
     try {
       await pollOnce(config, client);
       nextDelayMs = onPollSuccess(backoff, intervalMs);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.fatal) {
+        console.error("[executor] fatal configuration error — stopping:", err.message);
+        config.onError?.(err, "poll");
+        return; // do not reschedule
+      }
       config.onError?.(err, "poll");
       nextDelayMs = onPollFailure(backoff);
     }
@@ -200,7 +230,12 @@ export async function runExecutor(config: ExecutorConfig) {
   try {
     await pollOnce(config, client);
     nextDelayMs = onPollSuccess(backoff, intervalMs);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.fatal) {
+      console.error("[executor] fatal configuration error — stopping:", err.message);
+      config.onError?.(err, "poll");
+      return;
+    }
     config.onError?.(err, "poll");
     nextDelayMs = onPollFailure(backoff);
   }
