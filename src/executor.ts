@@ -148,15 +148,14 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
   let offset = 0;
 
   while (true) {
-    const page = await client.listObjects({
+    const page = await client.listObjectsPage({
       namespace: config.namespace,
       limit: pageSize,
       offset,
     });
-    const batch = page.objects ?? page;
-    if (!Array.isArray(batch) || batch.length === 0) break;
-    allObjects.push(...batch);
-    if (allObjects.length >= (page.total ?? batch.length)) break;
+    if (page.objects.length === 0) break;
+    allObjects.push(...page.objects);
+    if (allObjects.length >= page.total) break;
     offset += pageSize;
   }
 

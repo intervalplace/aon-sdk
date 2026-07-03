@@ -28,13 +28,15 @@ export class AonNodeClient {
     return json;
   }
 
-  async listObjects(filter?: {
+  // listObjectsPage returns the full paginated response including total count.
+  // Use this when you need to paginate through all objects.
+  async listObjectsPage(filter?: {
     objectType?: string;
     namespace?: string;
     references?: string;
     limit?: number;
     offset?: number;
-  }): Promise<AonObject[]> {
+  }): Promise<{ objects: AonObject[]; total: number; offset: number; limit: number }> {
     const params = new URLSearchParams();
     if (filter?.objectType) params.set("objectType", filter.objectType);
     if (filter?.namespace)  params.set("namespace",  filter.namespace);
@@ -44,7 +46,24 @@ export class AonNodeClient {
     const res  = await fetch(`${this.baseUrl}/v1/objects?${params}`);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error?.code ?? "LIST_OBJECTS_FAILED");
-    return json.objects;
+    return {
+      objects: json.objects ?? [],
+      total:   json.total   ?? 0,
+      offset:  json.offset  ?? 0,
+      limit:   json.limit   ?? (filter?.limit ?? 50),
+    };
+  }
+
+  // listObjects returns a plain array for simple use cases.
+  async listObjects(filter?: {
+    objectType?: string;
+    namespace?: string;
+    references?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AonObject[]> {
+    const page = await this.listObjectsPage(filter);
+    return page.objects;
   }
 
   async walkGraph(hash: string) {
