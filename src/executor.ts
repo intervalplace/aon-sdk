@@ -140,7 +140,11 @@ async function tryExecuteGraph(
   config.onExecuted?.(graph, result);
 }
 
-async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
+async function pollOnce(
+  config: ExecutorConfig,
+  client: AonNodeClient,
+  validatedCache: Set<string>   // persists across polls — avoids redundant ECC ops
+) {
   // Paginate through all objects — a single page (default 50) misses graphs
   // that reference objects beyond the first page.
   const allObjects: any[] = [];
@@ -161,22 +165,29 @@ async function pollOnce(config: ExecutorConfig, client: AonNodeClient) {
 
   const driver = getNamespace(config.namespace);
 
-  // Run validateObject on each fetched object. Invalid objects are removed
-  // before graph evaluation so the executor never acts on them.
-  // validateObject is optional on the driver — namespaces that don't implement
-  // it pass all objects through unchanged.
-  const validObjects: any[] = [];
-  for (const obj of allObjects) {
-    try {
+  // Run validateObject concurrently and cache results — avoids redundant ECC
+  // operations (e.g. verifyTypedData) for objects already validated on prior polls.
+  // Objects that fail validation are filtered out before graph evaluation.
+  const results = await Promise.allSettled(
+    allObjects.map(async (obj) => {
+      const h = obj.objectHash?.toLowerCase();
+      if (h && validatedCache.has(h)) return obj; // cache hit — skip re-validation
       await driver.validateObject?.(obj);
-      validObjects.push(obj);
-    } catch (err: any) {
+      if (h) validatedCache.add(h);
+      return obj;
+    })
+  );
+
+  const validObjects = results
+    .map((r, i) => {
+      if (r.status === "fulfilled") return r.value;
       console.warn("[executor] object failed validation — skipping", {
-        hash: obj.objectHash,
-        error: err.message,
+        hash: allObjects[i]?.objectHash,
+        error: (r.reason as any)?.message,
       });
-    }
-  }
+      return null;
+    })
+    .filter(Boolean);
 
   const raw = driver.evaluate(validObjects);
   const graphs = (Array.isArray(raw) ? raw : (raw.graphs ?? [])).filter(
@@ -224,11 +235,15 @@ export async function runExecutor(config: ExecutorConfig) {
 
   // Run immediately, then loop
 
+  // Cache of object hashes that have already passed validateObject.
+  // Persists across poll cycles — each object only pays ECC verification once.
+  const validatedCache = new Set<string>();
+
   let nextDelayMs = intervalMs;
 
   const loop = async () => {
     try {
-      await pollOnce(config, client);
+      await pollOnce(config, client, validatedCache);
       nextDelayMs = onPollSuccess(backoff, intervalMs);
     } catch (err: any) {
       if (err?.fatal) {
@@ -245,7 +260,7 @@ export async function runExecutor(config: ExecutorConfig) {
 
   // First poll immediately, then start the loop
   try {
-    await pollOnce(config, client);
+    await pollOnce(config, client, validatedCache);
     nextDelayMs = onPollSuccess(backoff, intervalMs);
   } catch (err: any) {
     if (err?.fatal) {
